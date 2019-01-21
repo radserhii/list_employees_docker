@@ -1,0 +1,60 @@
+version: '2'
+
+services:
+
+  ### APP Container ##################################
+  test_app:
+    build:
+      context: ./app
+      args:
+        - PUID=${PUID}
+        - PGID=${PGID}
+    ports:
+      - "127.0.0.1:${NGINX_HOST_HTTP_PORT}:80"
+      - "8080:80"
+      - "443:443"
+    extra_hosts:
+      - "test.local:127.0.0.1"
+    volumes:
+      - ${APPLICATION_PATH}/test:/var/www/test
+      - ./nginx/test.nginx.conf:/etc/nginx/conf.d/test.nginx.conf
+      - ./nginx/certs:/etc/nginx/certs
+    depends_on:
+      - test_db
+      - test_phpmyadmin
+    networks:
+      - test
+
+  ### MySQL DB Container ########################################
+  test_db:
+    build:
+      context: ./db
+    environment:
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - ${DATA_SAVE_PATH}/mysql:/var/lib/mysql
+      - ./db/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
+    ports:
+      - "${MYSQL_BIND_HOST}:${MYSQL_PORT}:3306"
+    networks:
+      - test
+
+    ### PhpMyAdmin #########################################################################################################
+  test_phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: test_phpmyadmin
+    restart: always
+    ports:
+      - "${PHPMYADMIN_BIND_HOST}:${PHPMYADMIN_HTTP_PORT}:80"
+    environment:
+      - PMA_HOST=test_db
+    networks:
+      - test
+
+### Networks Setup ############################################
+networks:
+  test:
+    driver: "bridge"
